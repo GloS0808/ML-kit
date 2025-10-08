@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Viewer with Annotations and Bounding Boxes</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        #container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        #controls {
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+        }
+        .photo-item {
+            text-align: center;
+        }
+        .thumbnail {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .photo-label {
+            margin-top: 5px;
+            font-size: 14px;
+            word-break: break-all;
+        }
+        #viewer {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        #imageContainer {
+            position: relative;
+            max-width: 90%;
+            max-height: 70%;
+        }
+        #fullImage {
+            max-width: 100%;
+            max-height: 100%;
+            display: block;
+        }
+        #drawCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            cursor: crosshair;
+        }
+        #annotationSection {
+            margin-top: 20px;
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+        }
+        #annotationSection label {
+            margin-right: 10px;
+        }
+        #annotationSection input {
+            flex: 1;
+            padding: 5px;
+        }
+        #annotationSection button {
+            margin-left: 10px;
+        }
+        #closeViewer {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="controls">
+            <button onclick="selectFolder()">Select Folder</button>
+        </div>
+        <div id="gallery"></div>
+        <div id="viewer">
+            <div id="imageContainer">
+                <img id="fullImage" src="">
+                <canvas id="drawCanvas"></canvas>
+            </div>
+            <div id="annotationSection">
+                <label for="photoLabel">Label:</label>
+                <input type="text" id="photoLabel" list="labelSuggestions">
+                <datalist id="labelSuggestions"></datalist>
+                <button onclick="saveLabel()">Save</button>
+                <button onclick="clearBox()">Clear Box</button>
+            </div>
+            <button id="closeViewer" onclick="closeViewer()">Close</button>
+        </div>
+    </div>
+
+    <script>
+        const gallery = document.getElementById('gallery');
+        const viewer = document.getElementById('viewer');
+        const fullImage = document.getElementById('fullImage');
+        const drawCanvas = document.getElementById('drawCanvas');
+        const photoLabel = document.getElementById('photoLabel');
+        const labelSuggestions = document.getElementById('labelSuggestions');
+        const ctx = drawCanvas.getContext('2d');
+        ctx.strokeStyle = 'red';
+        ctx.lineWidth = 2;
+        let dirHandle;
+        let annotations = {};
+        let currentFilename;
+        let currentBbox = null; // [x, y, w, h] normalized
+        let drawing = false;
+        let startX, startY;
+
+        async function selectFolder() {
+            try {
+                dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                gallery.innerHTML = ''; // Clear existing images
+                annotations = {}; // Reset annotations
+
+                // Supported image extensions
+                const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+
+                // Load annotations first
+                await loadAnnotations();
+
+                // Iterate through directory files
+                for await (const entry of dirHandle.values()) {
+                    if (entry.kind === 'file' && imageExtensions.some(ext => entry.name.toLowerCase().endsWith(ext))) {
+                        const file = await entry.getFile();
+                        const url = URL.createObjectURL(file);
+                        
+                        // Create photo item
+                        const item = document.createElement('div');
+                        item.className = 'photo-item';
+                        item.dataset.filename = entry.name;
+
+                        const img = document.createElement('img');
+                        img.src = url;
+                        img.className = 'thumbnail';
+                        img.alt = entry.name;
+                        img.onclick = () => showFullImage(url, entry.name);
+
+                        const labelP = document.createElement('p');
+                        labelP.className = 'photo-label';
+                        labelP.textContent = (annotations[entry.name] && annotations[entry.name].label) || '';
+
+                        item.appendChild(img);
+                        item.appendChild(labelP);
+                        gallery.appendChild(item);
+                    }
+                }
+            } catch (error) {
+                console.error('Error accessing folder:', error);
+                alert('Failed to access folder. Please try again.');
+            }
+        }
+
+        async function loadAnnotations() {
+            try {
+                const fileHandle = await dirHandle.getFileHandle('annotations.json', { create: false });
+                const file = await fileHandle.getFile();
+                const text = await file.text();
+                annotations = JSON.parse(text) || {};
+            } catch (error) {
+                // If file doesn't exist, start with empty annotations
+                if (error.name !== 'NotFoundError') {
+                    console.error('Error loading annotations:', error);
+                }
+                annotations = {};
+            }
+        }
+
+        async function saveAnnotations() {
+            try {
+                const fileHandle = await dirHandle.getFileHandle('annotations.json', { create: true });
+                const writable = await fileHandle.createWritable();
+                await writable.write(JSON.stringify(annotations, null, 2));
+                await writable.close();
+            } catch (error) {
+                console.error('Error saving annotations:', error);
+                alert('Failed to save annotations.');
+            }
+        }
+
+        function showFullImage(url, filename) {
+            fullImage.src = url;
+            currentFilename = filename;
+            if (!annotations[filename]) {
+                annotations[filename] = { label: '', bbox: null };
+            }
+            photoLabel.value = annotations[filename].label || '';
+            currentBbox = annotations[filename].bbox;
+
+            // Populate suggestions
+            const uniqueLabels = [...new Set(Object.values(annotations).map(a => a.label).filter(label => label !== ''))];
+            labelSuggestions.innerHTML = uniqueLabels.map(label => `<option value="${label}">`).join('');
+
+            viewer.style.display = 'flex';
+
+            // Set canvas size after image loads
+            fullImage.onload = () => {
+                drawCanvas.width = fullImage.clientWidth;
+                drawCanvas.height = fullImage.clientHeight;
+                drawBox();
+            };
+        }
+
+        function drawBox() {
+            ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+            if (currentBbox) {
+                const [x, y, w, h] = currentBbox;
+                ctx.strokeRect(x * drawCanvas.width, y * drawCanvas.height, w * drawCanvas.width, h * drawCanvas.height);
+            }
+        }
+
+        drawCanvas.addEventListener('mousedown', (e) => {
+            drawing = true;
+            startX = e.offsetX;
+            startY = e.offsetY;
+        });
+
+        drawCanvas.addEventListener('mousemove', (e) => {
+            if (drawing) {
+                const endX = e.offsetX;
+                const endY = e.offsetY;
+                const minX = Math.min(startX, endX);
+                const minY = Math.min(startY, endY);
+                const width = Math.abs(endX - startX);
+                const height = Math.abs(endY - startY);
+                ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+                ctx.strokeRect(minX, minY, width, height);
+            }
+        });
+
+        drawCanvas.addEventListener('mouseup', (e) => {
+            if (drawing) {
+                drawing = false;
+                const endX = e.offsetX;
+                const endY = e.offsetY;
+                const minX = Math.min(startX, endX);
+                const minY = Math.min(startY, endY);
+                const width = Math.abs(endX - startX);
+                const height = Math.abs(endY - startY);
+                if (width > 0 && height > 0) {
+                    currentBbox = [
+                        minX / drawCanvas.width,
+                        minY / drawCanvas.height,
+                        width / drawCanvas.width,
+                        height / drawCanvas.height
+                    ];
+                }
+            }
+        });
+
+        function clearBox() {
+            currentBbox = null;
+            ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+        }
+
+        function saveLabel() {
+            const label = photoLabel.value.trim();
+            annotations[currentFilename] = {
+                label: label,
+                bbox: currentBbox
+            };
+            saveAnnotations();
+            // Update gallery label
+            const labelElement = document.querySelector(`.photo-item[data-filename="${currentFilename}"] .photo-label`);
+            if (labelElement) {
+                labelElement.textContent = label;
+            }
+        }
+
+        function closeViewer() {
+            viewer.style.display = 'none';
+            fullImage.src = '';
+            photoLabel.value = '';
+            labelSuggestions.innerHTML = '';
+            ctx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+            currentFilename = null;
+            currentBbox = null;
+            fullImage.onload = null;
+            drawing = false;
+        }
+
+        // Close viewer when clicking outside the image or annotation section
+        viewer.addEventListener('click', (e) => {
+            if (e.target === viewer) closeViewer();
+        });
+    </script>
+</body>
+</html>
