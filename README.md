@@ -13,6 +13,7 @@
             --dark: #1d2144;
             --light: #f8f9fa;
             --success: #28a745;
+            --ai-color: #8a2be2;
             --border-radius: 8px;
             --box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
             --transition: all 0.3s ease;
@@ -70,6 +71,19 @@
             font-size: 1.2rem;
             margin-bottom: 30px;
             opacity: 0.9;
+        }
+        
+        /* AI Disclosure Styles */
+        .ai-disclosure {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 20px;
+            border-radius: 30px;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 25px;
+            font-size: 0.9rem;
+            backdrop-filter: blur(5px);
         }
         
         .btn {
@@ -180,6 +194,22 @@
             color: var(--secondary);
         }
         
+        .development-note {
+            background: #f0f4ff;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            border-left: 4px solid var(--ai-color);
+            margin: 20px 0;
+        }
+        
+        .development-note h3 {
+            color: var(--ai-color);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
         .about-image {
             text-align: center;
         }
@@ -282,6 +312,20 @@
             color: white;
         }
         
+        .ai-acknowledgement {
+            background: rgba(138, 43, 226, 0.1);
+            padding: 12px;
+            border-radius: var(--border-radius);
+            margin: 15px 0;
+            font-size: 0.85rem;
+            border: 1px solid rgba(138, 43, 226, 0.2);
+        }
+        
+        .ai-acknowledgement i {
+            color: var(--ai-color);
+            margin-right: 5px;
+        }
+        
         .social-links {
             display: flex;
             gap: 15px;
@@ -336,48 +380,6 @@
             
             .section {
                 padding: 60px 0;
-            }
-            /* AI Disclosure Styles */
-            .ai-disclosure {
-                background: rgba(255, 255, 255, 0.2);
-                padding: 10px 20px;
-                border-radius: 30px;
-                display: inline-flex;
-                align-items: center;
-                gap: 10px;
-                margin-bottom: 25px;
-                font-size: 0.9rem;
-                backdrop-filter: blur(5px);
-            }
-            
-            .development-note {
-                background: var(--light);
-                padding: 20px;
-                border-radius: var(--border-radius);
-                border-left: 4px solid var(--ai-color);
-                margin: 20px 0;
-            }
-            
-            .development-note h3 {
-                color: var(--ai-color);
-                margin-bottom: 10px;
-                display: flex;
-                align-items: center;
-                gap: 10px;
-            }
-            
-            .ai-acknowledgement {
-                background: rgba(138, 43, 226, 0.1);
-                padding: 12px;
-                border-radius: var(--border-radius);
-                margin: 15px 0;
-                font-size: 0.85rem;
-                border: 1px solid rgba(138, 43, 226, 0.2);
-            }
-            
-            .ai-acknowledgement i {
-                color: var(--ai-color);
-                margin-right: 5px;
             }
         }
     </style>
@@ -523,7 +525,32 @@
                         <a href="#"><i class="fab fa-youtube"></i></a>
                     </div>
                 </div>
-                <!-- Other footer columns remain the same -->
+                <div class="footer-column">
+                    <h3>Resources</h3>
+                    <ul>
+                        <li><a href="#">Documentation</a></li>
+                        <li><a href="#">Tutorials</a></li>
+                        <li><a href="#">Examples</a></li>
+                        <li><a href="#">API Reference</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h3>Community</h3>
+                    <ul>
+                        <li><a href="#">GitHub</a></li>
+                        <li><a href="#">Discord</a></li>
+                        <li><a href="#">Contributing</a></li>
+                        <li><a href="#">Code of Conduct</a></li>
+                    </ul>
+                </div>
+                <div class="footer-column">
+                    <h3>Legal</h3>
+                    <ul>
+                        <li><a href="#">Privacy Policy</a></li>
+                        <li><a href="#">Terms of Service</a></li>
+                        <li><a href="#">License</a></li>
+                    </ul>
+                </div>
             </div>
             <div class="copyright">
                 <p>&copy; 2023 ML-kit. All rights reserved. | AI-assisted development with verified code quality</p>
